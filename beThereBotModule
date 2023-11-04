@@ -1,0 +1,673 @@
+import smtplib, ssl
+import pandas as pd
+import datetime
+from PyMessenger import Email, SMS, Messenger
+import time
+
+def get_rows_and_person(xlfilename):
+    row_to_name = ...
+    newfilename = xl_to_csv(xlfilename)
+    fileObj = open(newfilename, 'r')
+    fileObjList = fileObj.readlines()
+    for row in fileObjList:
+        first_comma = row.find(',')
+        row_number = row[:first_comma]
+        first_quotation = row.find('"')
+        second_quotation = row.find('"', first_quotation + 1)
+        print(row_number, row[first_quotation + 1 : second_quotation])
+        print()
+"""
+Deconstruct code and put into function sections. Emailer is betherebot9170@gmail.com, sends formatted text
+https://isaacstechblog.com/blog/send-email-and-txt-msg-with-python/#sending-text-messages <--- gateways
+Version 5 Addition: Gateways (Phone Company)
+
+"""
+def get_date_string():
+    today = datetime.date.today()
+    return str(today)
+
+def identify_weekday(dayandnum):
+    if len(dayandnum) == 1:
+                if dayandnum[0] == 'S':
+                    single_weekday = 'Saturday'
+                elif dayandnum[0] == 'T':
+                    single_weekday = 'Tuesday'
+                elif dayandnum[0] == 'M':
+                    single_weekday = 'Monday'
+                elif dayandnum[0] == 'W':
+                    single_weekday = 'Wednesday'
+                elif dayandnum[0] == 'F':
+                    single_weekday = 'Friday'
+    else:
+        daydotnum = dayandnum.split('.')
+        daydot = daydotnum[0]
+        dotnum = daydotnum[1]
+        if daydot == 'T' and int(dotnum) % 2 == 1:
+            single_weekday = 'Thursday'
+        elif daydot == 'T' and int(dotnum) % 2 == 0:
+            single_weekday = 'Tuesday'
+        elif daydot == 'S' and int(dotnum) % 2 == 1:
+            single_weekday = 'Saturday'
+        elif daydot == 'S' and int(dotnum) % 2 == 0:
+            single_weekday = 'Sunday'
+        elif daydot == 'M':
+            single_weekday = 'Monday'
+        elif daydot == 'W':
+            single_weekday = 'Wednesday'
+        elif daydot == 'F':
+            single_weekday = 'Friday'
+    return single_weekday
+
+def get_first_name(listofstrings, employee_id):
+    target_line = listofstrings[employee_id + 1]
+    target_line_list = target_line.split(',')
+    last_name = target_line_list[1][1::]
+    end = len(target_line_list[2]) - 1
+    first_name = target_line_list[2][1:end:]
+    return first_name
+def get_last_name(listofstrings, employee_id):
+    target_line = listofstrings[employee_id + 1]
+    target_line_list = target_line.split(',')
+    last_name = target_line_list[1][1::]
+    end = len(target_line_list[2]) - 1
+    first_name = target_line_list[2][1:end:]
+    return last_name
+def xl_to_csv(xlfilename):
+    dataframe1 = pd.read_excel(xlfilename ,sheet_name='INTERNS')
+    newcsvname = xlfilename + '.csv'
+    dataframe1.to_csv(newcsvname)
+    return newcsvname
+def id_to_info(xlfilename):
+    """
+    Takes in a fileObj.readlines() instance, returns a dictionary
+    of string to string values, where the key represents an ID,
+    the value represents the name and shifts
+    """
+    tempcsvfile = xl_to_csv(xlfilename)
+    fileobj = open(tempcsvfile, 'r')
+    some_file_obj_list = fileobj.readlines()[2::]
+    f = {}
+    for i in range(len(some_file_obj_list)):
+        some_file_obj_list[i] = some_file_obj_list[i].strip()
+        temp_line_list = some_file_obj_list[i].split(',')
+        f[temp_line_list[0]] = ",".join(temp_line_list[1::])
+    return f
+def phone_provider(company):
+    if company == "at&t":
+        return "@txt.att.net"
+    elif company == "sprint":
+        return "@messaging.sprintpcs.com"
+    elif company == "t mobile":
+        return "@tmomail.net"
+    elif company == "verizon":
+        return "@vtext.com"
+    elif company == "boost mobile":
+        return "@myboostmobile.com"
+    elif company == "cricket":
+        return "@sms.mycricket.com"
+    elif company == "metropcs":
+        return "@mymetropcs.com"
+    elif company == "tracfone":
+        return "@mmst5.tracfone.com"
+    elif company == "us cellular":
+        return "@email.uscc.net"
+    elif company == "virgin mobile":
+        return "@vmobl.com"
+    elif company == "ultra mobile":
+        return "@mailmymobile.net"
+    elif company == "simplemobile":
+        return "@smtext.com"
+def construct_msg(xlfilename, id, week):
+    """
+    xlfilename --> a string of the name of the excel file to be interpreted
+    id --> a string of the employee id who is the focus
+    week --> a string in format MM/DD
+    Constructs a message/string that contains information on shifts during a specified week
+    """
+    newfilename = xl_to_csv(xlfilename)
+    fileObj = open(newfilename, 'r')
+    # A list of strings of cell values in the excel list we should NOT count as a shift
+    IGNORED_TEXT = ['', '\xa0', '\n', ' ', '\xa0\n'] 
+    # user_id = input("Enter user id: ")
+    # user_week = input("Enter a week (MM/DD): ")
+    user_id = id
+    user_week = week
+
+    user_week_list = user_week.split('/')
+    if (len(user_week_list)) == 2:
+        if len(user_week_list[0]) == 1:
+            user_week_list[0] = '0' + user_week_list[0]
+        if len(user_week_list[1]) == 1:
+            user_week_list[1] = '0' + user_week_list[1]
+    month = user_week_list[0]
+    month_day = user_week_list[1]
+    fileObjList = fileObj.readlines()
+
+    dates = fileObjList[1].split(',')
+    for i in range(len(dates)):
+        dates[i] = dates[i].strip()
+    days = fileObjList[0][1::].split(',')
+    only_days = days[1::]
+    date_time = fileObjList[1][3::].split(',')
+    date_notime = [chr.split()[0] for chr in date_time]
+
+    date_idx = 0
+    workers = fileObjList[2::]
+
+    while not (date_notime[date_idx].split('-')[1] == month and date_notime[date_idx].split('-')[2] == month_day):
+        date_idx += 1
+
+    employee_first_name = get_first_name(fileObjList, int(user_id))
+    employee_last_name = get_last_name(fileObjList, int(user_id))
+
+    goodbye = "\nThank you.\n-BeThere Bot"
+    sign_off_text = "\nCalvin & Jacob\nChief Interns, 2024\nProblems? Email: betherebot9170@gmail.com"
+    msg = "\nHello " + employee_first_name + ' ' + employee_last_name + ". Your shifts for the week of " + user_week + ' are below:\n\n'
+
+    default_msg = msg + goodbye + sign_off_text
+
+    weekday_idx = date_idx
+    target = only_days[weekday_idx].split('.')
+    
+    for i in range(2, len(fileObjList)):
+        worker_info = fileObjList[i].split(',')
+        if worker_info[0] == user_id:
+            if worker_info[weekday_idx + 3] in IGNORED_TEXT:
+                    continue
+            else:
+                #Tagged a 1
+                last_name = worker_info[1][1::]
+                end = len(worker_info[2][1::])
+                first_name = worker_info[2][1:end]
+                #K TAG 1
+                print("{}, {}    {}    {} -- {}".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], only_days[weekday_idx]))
+                msg += "{}, {}    {}    {} -- {}\n\n".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], identify_weekday(only_days[weekday_idx]))
+            weekday_idx += 1
+            if weekday_idx < len(only_days):
+                target = only_days[weekday_idx].split('.')
+    
+    while (weekday_idx < len(only_days)):
+        
+        if len(target) == 1:
+            for i in range(2, len(fileObjList)):
+                worker_info = fileObjList[i].split(',')
+                if worker_info[0] == user_id:
+                    if worker_info[weekday_idx + 3] in IGNORED_TEXT:
+                        continue
+                    else:
+                        #Tagged a 2
+                        last_name = worker_info[1][1::]
+                        end = len(worker_info[2][1::])
+                        first_name = worker_info[2][1:end]
+                        #K TAG 2
+                        print("{}, {}    {}    {} -- {}".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], only_days[weekday_idx]))
+                        msg += "{}, {}    {}    {} -- {}\n\n".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], identify_weekday(only_days[weekday_idx]))
+            if weekday_idx < len(only_days):
+                target = only_days[weekday_idx].split('.')
+        elif len(target) == 2 and (target[0] == 'S' and int(target[1]) % 2 == 0):
+            for i in range(2, len(fileObjList)):
+                worker_info = fileObjList[i].split(',')
+                if worker_info[0] == user_id:
+                    if worker_info[weekday_idx + 3] in IGNORED_TEXT:
+                        continue
+                    else:
+                        #Tagged a 3
+                        last_name = worker_info[1][1::]
+                        end = len(worker_info[2][1::])
+                        first_name = worker_info[2][1:end]
+                        #K TAG 3
+                        #print("C:", (worker_info[weekday_idx + 3]).strip())
+                        print("{}, {}    {}    {} -- {}".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], only_days[weekday_idx]))
+                        msg += "{}, {}    {}    {} -- {}\n\n".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], identify_weekday(only_days[weekday_idx]))
+            weekday_idx += 1
+            break
+        else:
+            for i in range(2, len(fileObjList)):
+                worker_info = fileObjList[i].split(',')
+                if worker_info[0] == user_id and weekday_idx + 3 < len(worker_info): #6/25 added this here, sometimes the length of a worker info list is too short, but weekday + 3 exceeds that length and looks for something beyond what the calendar has, so make sure that it is within bounds by doing this check, tmeporary fix? idk
+                # if worker_info[0] == user_id:
+                    if worker_info[weekday_idx + 3] in IGNORED_TEXT:
+                        continue
+                    else:
+                        #Tagged a 4
+                        #print("HELLO HELLO", worker_info[weekday_idx + 3] == '\n') <--- Error found on 2/19
+                        #print("D:", (worker_info[weekday_idx + 3]), len((worker_info[weekday_idx + 3]))) <--- Error found on 4/13. ' ' in a cell.
+                        last_name = worker_info[1][1::]
+                        end = len(worker_info[2][1::])
+                        first_name = worker_info[2][1:end]
+                        #K TAG 4
+                        print("{}, {}    {}    {} -- {}".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], only_days[weekday_idx]))
+                        msg += "{}, {}    {}    {} -- {}\n\n".format(last_name, first_name, (worker_info[weekday_idx + 3]).strip(), dates[weekday_idx + 2][0:10], identify_weekday(only_days[weekday_idx]))
+        weekday_idx += 1
+        if weekday_idx < len(only_days):
+                target = only_days[weekday_idx].split('.')
+
+    border = '=' * 81
+    border = '\n' + border + '\n'
+    msg = msg + goodbye + sign_off_text
+
+    if default_msg == msg:                                                                                                                  
+        return "\nHello " + employee_first_name + ' ' + employee_last_name + ". Your shifts for the week of " + user_week + ' are below:\n\nNo shifts for the week.\n' + goodbye + sign_off_text
+    print()
+    return msg
+
+def construct_text_msg(xlfilename, id, week):
+    return construct_msg(xlfilename, id, week) + '\n'
+def send_email(final_msg, receiver):
+    """
+    final_msg --> a string of the email body content
+    receiver --> a string of the email that will receieve the final_msg
+    Send final_msg to receiever email
+    """
+    port = 587  
+    smtp_server = "smtp.gmail.com"
+    sender_email = "YOUREMAILHERE@gmail.com"
+    password = "YOURPASSWORDHERE"
+
+    context = ssl.create_default_context()
+
+    with smtplib.SMTP(smtp_server, port) as server:
+        server.ehlo()  
+        server.starttls(context=context)
+        server.ehlo() 
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver, final_msg)
+    print("\nThe message below was emailed to address:", receiver)
+    print(final_msg)
+def send_multiple_emails(xlfilename, id_to_email, week_of):
+    """
+    xlfilename --> a string of the name of an excel file to be interpreted
+    id_to_email --> a dictionary of string:string values, worker id to their corresponding emails
+    week_of --> a string in format MM/DD
+    For every person id in the id_to_email dictionary, for the specific week of week_of, an email will be sent out
+    """
+    for some_id, some_email in id_to_email.items():
+        personalized_message = construct_msg(xlfilename, some_id, week_of)
+        send_email(personalized_message, some_email)
+def check_and_send_updated_emails(oldxlfilename, newxlfilename, id_to_email, week_of):
+    """
+    oldxlfilename, newxlfilename --> string of names of excel files to be interpreted
+    id_to_email --> a dictionary of string:string values, key is employee id and email is their associated email address
+    week_of --> string in format MM/DD, specifies certain date
+
+    """
+    for some_id, some_email in id_to_email.items():
+        updated_msg = construct_msg(newxlfilename, some_id, week_of)
+        if construct_msg(oldxlfilename, some_id, week_of) != updated_msg:
+            updated_msg = "Your schedule status has been updated.\n" + updated_msg
+            send_email(updated_msg, some_email)
+def send_text(msg_content, receiver_of_text, phone_company):  
+    """
+    msg_content --> a string of the message that will be texted
+    receiver_of_text --> a string of the phone number (#) that will be receiving the text
+    Send msg_content to the receiever_of_text phone number
+    VERSION 5 ADDITION: Add Gateway
+    """
+    msg_subject = "BE THERE BOT"
+    sender_of_text = Messenger('betherebot9170@gmail.com', 'ubrtwmprrjgomour')
+    gateway = phone_provider(phone_company)
+    msg = SMS(receiver_of_text, gateway, msg_subject, msg_content)
+    if type(msg_content) == list:
+        pages = len(msg_content)
+        record = []
+        for i in range(len(msg_content)):
+            if i == 0:
+                temp_msg = SMS(receiver_of_text, gateway, msg_subject, msg_content[i])
+            else:
+                temp_msg = SMS(receiver_of_text, gateway, '', msg_content[i])
+            record.append("\n=====\n" + msg_content[i] + "\n=====\n")
+            sender_of_text.send_sms(temp_msg, one_time=True)
+            print("Message {}/{} sent".format(i + 1, pages))
+            time.sleep(10)
+        if gateway == "verizon":
+            print("\nThe VERIZON message below was texted to the number:", receiver_of_text)
+        elif gateway == "at&t":
+            print("\nThe AT&T message below was texted to the number:", receiver_of_text)
+        for chunk in record:
+            print(chunk)
+    else:
+        sender_of_text.send_sms(msg, one_time=True)
+        print("\nThe message below was texted to the number:", receiver_of_text)
+        print(msg_content)
+def check_and_send_updated_texts(oldxlfilename, newxlfilename, id_to_number_and_gateway, week_of):
+    """
+    oldxlfilename, newxlfilenmae --> excel sheets to be interpreted
+    id_to_number_and_gateway --> a dictionary of string to list of string values, string of employee id as the key,
+    and a list of the phone number and gateway as the value
+    week_of --> string of the week to be considered
+    note that the new file goes first, it will precede the old file, and then compare the two. (3 show up if there is a difference)
+    """
+    for some_id, some_id_to_number_and_gateway in id_to_number_and_gateway.items():
+        updated_msg = construct_msg(newxlfilename, some_id, week_of)
+        if construct_msg(oldxlfilename, some_id, week_of) != updated_msg:
+            updated_msg = "Your schedule status has been updated.\n"
+            send_text(updated_msg, some_id_to_number_and_gateway[0], some_id_to_number_and_gateway[1])
+            time.sleep(5)
+            construct_and_send_text(newxlfilename, some_id, week_of, id_to_number_and_gateway)
+            time.sleep(5)
+            # send_text(updated_msg, some_id_to_number_and_gateway[0], some_id_to_number_and_gateway[1])
+
+def construct_and_send_text(xlfilename, employee_id, week_of, id_to_phone_and_gateway):
+    """
+    xlfilename --> excel file to be interpreted
+    employee_id --> a string of the employee id being considered
+    week_of --> a string of the week to be considered
+    id_to_phone_and_gateway --> string to list, string of id to a list of strings that contain number and phone-company
+    """
+    if employee_id in id_to_phone_and_gateway:
+        main_msg = construct_text_msg(xlfilename, employee_id, week_of)
+        if id_to_phone_and_gateway[employee_id][1] == "verizon":
+            #temp_msg = construct_verizon_msg_list(main_msg, 140)
+            temp_msg = construct_uniform_verizon_msg_list(main_msg)
+            send_text(temp_msg, id_to_phone_and_gateway[employee_id][0], id_to_phone_and_gateway[employee_id][1])
+        else:
+            send_text(main_msg, id_to_phone_and_gateway[employee_id][0], id_to_phone_and_gateway[employee_id][1])
+    else:
+        print("MESSAGE FAILED TO SEND: ID {} does not exist within the dictionary.".format(employee_id))
+def construct_and_send_multiple_texts(xlfilename, id_to_number_and_gateway, week_of):
+    """
+    xlfilename --> file being interpreted
+    id_to_number_and_gateway --> string to list, string of id to a list of strings that contain number and phone-company
+    week-of --> a string of the week to be considered
+    send multiple texts given the excel sheet name, employee id to their contact info and the week
+    """
+    for some_id, some_number_and_gateway in id_to_number_and_gateway.items():
+        # temp_msg = construct_text_msg(xlfilename, some_id, week_of)
+        # send_text(temp_msg, some_number_and_gateway[0], some_number_and_gateway[1])
+        construct_and_send_text(xlfilename, some_id, week_of, id_to_number_and_gateway)
+        time.sleep(10)
+        print("** Waited 10 seconds **")
+def add_worker(id, number, gateway, contact_info):
+    """
+    id --> string of employee id
+    number , gateway --> string of phone number and string of gateway
+    contact_info --> dictionary of string to list of string values, string:[string, string]
+    """
+    if not id in contact_info:
+        contact_info[id] = [number, gateway]
+        print("Employee {}: number {}, {} was added.".format(id, number, gateway))
+    else:
+        print("Employee {} is already in the system.".format(id))
+
+def construct_verizon_msg_list(msg, char_count):
+    """
+    msg --> a string of the message to be interpreted
+    char_count --> a boundary of how long each message should be
+    this function takes in msg and char count, returns a list where each element in the list
+    represents a separate text bubble with the contained information
+    note: accounts for the sign off text to be in the last bubble, on its own
+    version9 --> make uniform verizon version
+    """
+    goodbye_and_sign_off_text = "\nCalvin & Jacob\nChief Interns, 2024\nProblems? Email: betherebot9170@gmail.com"
+    #the entire message, without the sign off text, would be from index 0 to -128.
+    #128 is the goodbye segement, assume char count >= 128
+    chunks = []
+    msg = msg[:-128]
+    cursor = 0
+    end = len(msg) - 1
+    while cursor <= end:
+        temp_end = cursor + char_count
+        chunks.append(msg[cursor:temp_end])
+        cursor = temp_end
+    chunks.append(goodbye_and_sign_off_text)
+    return chunks
+
+def construct_uniform_verizon_msg_list(msg):
+    """
+    msg --> a string of the message to be interpreted
+    returns a final_msg_list, where each element in the list represents
+    a single line in the entire message
+    (for verizon users to get multiple texts while maintaining clear formatting)
+    note: also accounts for sign off text to be in its own text bubble
+    """
+    goodbye_and_sign_off_text = "\nCalvin & Jacob\nChief Interns, 2024\nProblems? Email: betherebot9170@gmail.com"
+    final_msg_list = []
+    msg = msg[:-100] #128 with messed up T
+    raw_msg_list = msg.split('\n')
+    for some_msg in raw_msg_list:
+        if some_msg != '':
+            final_msg_list.append(some_msg)
+    final_msg_list.append(goodbye_and_sign_off_text)
+    return final_msg_list
+
+def simulate_fresh_run(xlfilename, id_to_number_and_gateway, week_of):
+    for some_id, some_number_to_gateway in id_to_number_and_gateway.items():
+        their_message = construct_msg(xlfilename, some_id, week_of)
+        print(" - - - - - - - - - - - - - - - - - - Number: {}".format(some_number_to_gateway[0]))
+        if some_number_to_gateway[1] == "verizon":
+            their_message_list = construct_uniform_verizon_msg_list(their_message)
+            page_num = 1
+            print("VERIZON USER BELOW:")
+            for piece in their_message_list:
+                print("Text #{}".format(page_num))
+                print(piece)
+                page_num += 1
+        else:
+            print(their_message)
+        print(" - - - - - - - - - - - - - - - - - - ")
+def simulate_check_and_send_updates_run(oldxlfilename, newxlfilename, id_to_number_and_gateway, week_of):
+    for some_id, id_to_number_and_gateway in id_to_number_and_gateway.items():
+        updated_msg = construct_msg(newxlfilename, some_id, week_of)
+        if construct_msg(oldxlfilename, some_id, week_of) != updated_msg:
+            print("Old:\n", construct_msg(oldxlfilename, some_id, week_of))
+            print("New:\n", updated_msg)
+            print(" - - - - - - - - - - - - - - - - - - Number: {}".format(id_to_number_and_gateway[0]))
+            if id_to_number_and_gateway[1] == "verizon":
+                their_message_list = construct_uniform_verizon_msg_list(updated_msg)
+                print("UPDATED VERSION TO VERIZON USER BELOW: ")
+                page_num = 2
+                print("Text #1")
+                print("Your schedule status has been updated.\n")
+                for piece in their_message_list:
+                    print("Text #{}".format(page_num))
+                    print(piece)
+                    page_num += 1
+            else:
+                print("Your schedule status has been updated.\n")
+                print(updated_msg)
+                print(" - - - - - - - - - - - - - - - - - -")
+           
+def verizon_users(id_to_phone_and_gateway):
+    """
+    id_to_number_and_gateway --> string to list, string of id to a list of strings that contain number and phone-company
+    returns a dictionary, of string id to list of string(number) and gateway
+    this is to pick out verizon users from the pool of users
+    """
+    final = {}
+    for some_id, some_number_and_gateway in id_to_phone_and_gateway.items():
+        if some_number_and_gateway[1] == "verizon":
+            final[some_id] = some_number_and_gateway
+    print("Fetched verizon users, the dictionary is:", final)
+    return final
+def wait_twenty_sec():
+    time.sleep(20)
+    print(" ** Waited 20 seconds **")
+"""
+Keep track of those in record: 
+ID = EXCEL POSITION - 2
+40 - Calvin - 3473514508
+2 - Javeria - 9177675073
+3 - Rabiah - 9292539167
+5 - Andrew - 3478402286
+19 - Jennifer Lam - 3477978800
+47 - Kelvin - 7875121078
+34 - Kenneth - 3472106381
+27 - Kaitlyn / Preet - 9294616602
+21 - Huilin - 9179516667
+4 - Christine - 7182160310
+18 - Hanna - 7187918040
+30 - Usman - 9172572368
+35 - Hasan - 9179727137
+46 - Serveria - 9739740593
+10 - Ivan - 4014300513
+7 - Remy - 5518042632
+24 - Rona - 3472077976
+9 - Mirna - 3472170754
+29 - Kristen - 9174559621 
+23 - Aly - 9177026890
+12 - Jennifer Galvet - 9178473677
+15 - Christina - 2012216337
+25 - Jacob - 3477204760
+26 - Emily - 3477204734
+13 - Shannon - 5165196408
+11 - Hillary - 6462360306
+20 - Jeffrey - 3479240391
+37 - Digleiry - 3479931075 
+44 - Rabia Riaz - 9292452191
+39 - Wilson - 9177058400
+"""
+# 10/3/23 Adding Emailing Features
+def fetch_first_name(first_name_and_role):
+    """
+    first_name_and_role -> a string formatted that could be formatted as "firstName (role)" or just "firstName"
+    returns a string that represents just the firstName part of the first_name_and_role string
+    """
+    first_name = ""
+    for char in first_name_and_role:
+        if char == " ":
+            break
+        first_name += char    
+    return first_name
+def retrieve_id(target_first_name, target_last_name, xlfilename):
+    """
+    target_first_name -> a string to represent the first name we are looking for
+    target_last_name -> a string to represent the last name we are looking for
+    xlfilename -> a string to represent the file name, code will open it and interpret
+    return a string representing the corresponding id to the first name and last name
+    if we are able to find a match. -1 as an integer if it fails
+    """
+    newfilename = xl_to_csv(xlfilename)
+    fileObj = open(newfilename, 'r')
+    fileObjList = fileObj.readlines()
+    for line in fileObjList:
+        first_comma = line.find(",")
+        id = line[:first_comma]
+        first_quote = first_comma + 1
+        second_quote = line.find('"', first_quote + 1)
+        name_string = line[first_quote + 1 : second_quote]
+        last_name_comma = name_string.find(",")
+        last_name = name_string[:last_name_comma] # To account for middle names, last_name could be "lastName middleName"
+        first_name_and_role = name_string.split(",")[1][1:] # " firstName (role)"
+        first_name = fetch_first_name(first_name_and_role)
+        if first_name == target_first_name and last_name == target_last_name:
+            fileObj.close()
+            return id # string return
+    print("retrieve_id error: {} + {} could not be found, returned -1".format(target_first_name, target_last_name))
+    fileObj.close()
+    return -1 # integer return
+def remove_telephone_spaces(telephone_number_string):
+    """
+    telephone_number_string --> a string representing a telephone number formatted ### ### ####
+    returns a string representing a formatted number ##########
+    """
+    stripped_telephone_number_string = ""
+    for char in telephone_number_string:
+        if char != " ":
+            stripped_telephone_number_string += char
+    return stripped_telephone_number_string
+def add_person(full_name, telephone, provider, preference = "TEXT", email = ''):
+    """
+    Note: Preference is TEXT by default, Email is empty by default
+    full_name --> strings that represent an employee to add to NAME_TO_CONTACT (globally accessible)
+    email, telephone, provider --> email, tele, provider belonging to person with first_name and last_name
+    preference --> options are "TEXT", "EMAIL", or "BOTH"
+    Note: NAME_TO_CONTACT is a globally accessible dictionary
+    """
+    preference = preference.upper()
+    merged_telephone = remove_telephone_spaces(telephone)
+    contact_info = [merged_telephone, provider, preference, email]
+    if not full_name in NAME_TO_CONTACT: # Valid to add
+        NAME_TO_CONTACT[full_name] = contact_info
+        print("{}: {}, {}    Preference {} added.".format(full_name, telephone, provider, preference))
+    else: # Duplicate entry error
+        print("add_person error: {} already exists, contact info {}\Attempted add {}, contact info {}"
+        .format(full_name, NAME_TO_CONTACT[full_name], full_name, contact_info))
+def deliver_text(xlfilename, employee_id, week_of, number, provider):
+    """
+    xlfilename --> excel file to be interpreted
+    employee_id --> a string of the employee id being considered
+    week_of --> a string of the week to be considered
+    number --> a string of the cellphone number to receieve the message
+    provider --> phone provider corresponding to the number provided
+    """
+    #This function ASSUMES the employee_id matches the person, and person exists in our dictionary of contacts
+    message_to_send = construct_text_msg(xlfilename, employee_id, week_of)
+    if provider == "verizon":
+        temp_msg = construct_uniform_verizon_msg_list(message_to_send)
+        send_text(temp_msg, number, provider)
+    else:
+        send_text(message_to_send, number, provider)
+def deliver_text_update(xlfilename, employee_id, week_of, number, provider):
+    #Not used
+    return
+    """
+    Note: This is the exact same as deliver_text, but it has a "UPDATE" header
+    xlfilename --> excel file to be interpreted
+    employee_id --> a string of the employee id being considered
+    week_of --> a string of the week to be considered
+    number --> a string of the cellphone number to receieve the message
+    provider --> phone provider corresponding to the number provided
+    """
+    #This function ASSUMES the employee_id matches the person, and person exists in our dictionary of contacts
+    message_to_send = construct_text_msg(xlfilename, employee_id, week_of)
+    if provider == "verizon":
+        temp_msg = construct_uniform_verizon_msg_list(message_to_send)
+        send_text(temp_msg, number, provider)
+    else:
+        send_text(message_to_send, number, provider)
+def send_notifications(xlfilename, week_of): # Run at beginning of week
+    for some_full_name, some_contact_info in NAME_TO_CONTACT.items():
+        first_space = some_full_name.find(" ")
+        corresponding_telephone, corresponding_provider = some_contact_info[0], some_contact_info[1]
+        corresponding_preference = some_contact_info[2]
+        corresponding_email = some_contact_info[3]
+        corresponding_first_name, corresponding_last_name = some_full_name[:first_space], some_full_name[first_space + 1:]
+        corresponding_id = retrieve_id(corresponding_first_name, corresponding_last_name, xlfilename)
+        print(corresponding_first_name, corresponding_last_name, corresponding_preference, end = ' ')
+        if corresponding_preference == "TEXT":
+            print("Text 1")
+            deliver_text(xlfilename, corresponding_id, week_of, corresponding_telephone, corresponding_provider)
+            time.sleep(25)
+        elif corresponding_preference == "EMAIL": # Check if email is valid ? Not needed for now
+            print("Email 2")
+            message_to_send = construct_msg(xlfilename, corresponding_id, week_of)
+            send_email(message_to_send, corresponding_email)
+            time.sleep(25)
+        elif corresponding_preference == "BOTH":
+            print("Both 3")
+            deliver_text(xlfilename, corresponding_id, week_of, corresponding_telephone, corresponding_provider)
+            time.sleep(25)
+            message_to_send = construct_msg(xlfilename, corresponding_id, week_of)
+            send_email(message_to_send, corresponding_email)
+            time.sleep(25)
+    print("Send notifications completed")
+def simulate_send_notifications(xlfilename, week_of): # Run at beginning of week
+    for some_full_name, some_contact_info in NAME_TO_CONTACT.items():
+        first_space = some_full_name.find(" ")
+        
+        corresponding_telephone, corresponding_provider = some_contact_info[0], some_contact_info[1]
+        corresponding_first_name, corresponding_last_name = some_full_name[:first_space], some_full_name[first_space + 1:]
+        corresponding_preference = some_contact_info[3]
+        corresponding_id = retrieve_id(corresponding_first_name, corresponding_last_name, xlfilename)
+        if corresponding_id == -1:
+            print("+-+-+-+-+-+simulate_send_notifications SKIPPED, ID: -1 detected for {}+-+-+-+-+-+".format(corresponding_first_name + ' ' + corresponding_last_name))
+            continue
+        their_message = construct_msg(xlfilename, corresponding_id, week_of)
+        print(" - - - - - - - - - - - - - - - - - -{} {} {} {} {}".format(corresponding_first_name, 
+        corresponding_last_name, corresponding_telephone, corresponding_provider, corresponding_preference))
+        if corresponding_provider == "verizon":
+            their_message_list = construct_uniform_verizon_msg_list(their_message)
+            page_num = 1
+            print("VERIZON USER BELOW:")
+            for piece in their_message_list:
+                print("Text #{}".format(page_num))
+                print(piece)
+                page_num += 1
+        else:
+            print(their_message)
+        print(" - - - - - - - - - - - - - - - - - - ")
+"""
+FullName: [telephone, provider, preference, email]
+"""
+NAME_TO_CONTACT = {} # GLOBALLY ACCESSIBLE
+
